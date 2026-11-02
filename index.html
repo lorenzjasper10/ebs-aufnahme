@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EBS Aufnahme</title>
+<meta name="theme-color" content="#0e0f13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aufnahme">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-512.png">
+<link rel="icon" href="icon-512.png">
+<style>
+/* Studio at night: one dark surface, the record button is the only loud thing. */
+:root{
+  --bg:#0e0f13; --panel:#17191f; --panel2:#1f222a; --fg:#f1f2f5; --muted:#8d93a1; --line:#2a2e37;
+  --rec:#ff3b30; --rec-soft:rgba(255,59,48,.16); --acc:#7d97ff; --ok:#5fd394; --warn:#f0b357;
+  --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --num:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);height:100%}
+body{font-family:var(--ui);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;
+  padding:calc(env(safe-area-inset-top,0px) + 12px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2.5px solid var(--acc);outline-offset:3px;border-radius:10px}
+[hidden]{display:none!important}
+.app{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:18px;min-height:100%}
+.top{display:flex;align-items:center;gap:10px}
+.brand{flex:1;font-weight:700;font-size:17px;display:flex;align-items:center;gap:9px}
+.brand i{width:9px;height:9px;border-radius:50%;background:var(--rec)}
+.icon{width:40px;height:40px;border-radius:50%;border:0;background:var(--panel);display:grid;place-items:center;color:var(--muted)}
+.icon svg{width:20px;height:20px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:460px){.fields{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+.in{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px;width:100%;min-width:0}
+.in:disabled{opacity:.6}
+/* stage */
+.stage{background:var(--panel);border-radius:28px;padding:28px 20px 22px;display:flex;flex-direction:column;align-items:center;gap:16px;position:relative;overflow:hidden}
+.time{font-family:var(--num);font-size:56px;font-weight:300;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
+.state{font-size:14px;color:var(--muted);display:flex;align-items:center;gap:8px;min-height:20px}
+.state .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.rec .state .dot{background:var(--rec);animation:blink 1.2s infinite}
+.paused .state .dot{background:var(--warn)}
+@keyframes blink{50%{opacity:.2}}
+canvas#meter{width:100%;height:64px;display:block}
+.controls{display:flex;align-items:center;justify-content:center;gap:26px;margin-top:4px}
+.big{width:96px;height:96px;border-radius:50%;border:4px solid #fff;background:transparent;display:grid;place-items:center;padding:0;transition:transform .15s}
+.big:active{transform:scale(.96)}
+.big span{display:block;width:72px;height:72px;border-radius:50%;background:var(--rec);transition:all .25s}
+.rec .big span,.paused .big span{width:36px;height:36px;border-radius:9px}
+.side{width:56px;height:56px;border-radius:50%;border:0;background:var(--panel2);display:grid;place-items:center}
+.side svg{width:24px;height:24px}
+.side:disabled{opacity:.3}
+.hint{font-size:13.5px;color:var(--muted);text-align:center;max-width:42ch}
+/* live text */
+.live{background:var(--panel);border-radius:20px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-height:120px}
+.live-h{display:flex;align-items:center;gap:10px}
+.live-h b{flex:1;font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.switch{position:relative;width:46px;height:28px;flex:none}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.switch i{position:absolute;inset:0;border-radius:99px;background:var(--panel2);transition:.2s;pointer-events:none}
+.switch i::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s}
+.switch input:checked+i{background:var(--ok)}
+.switch input:checked+i::after{transform:translateX(18px)}
+#liveText{font-size:18px;line-height:1.55;max-height:38vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+#liveText p{margin:0}
+#liveText .t{font-family:var(--num);font-size:12px;color:var(--muted);margin-right:8px}
+#liveText .interim{color:var(--muted)}
+.empty{color:var(--muted);font-size:15px}
+/* cards */
+.card{background:var(--panel);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.card h2{margin:0;font-size:19px}
+.bar{height:6px;border-radius:99px;background:var(--panel2);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .3s}
+.btn{border:0;border-radius:999px;padding:12px 18px;font-weight:600;background:var(--panel2);min-height:44px}
+.btn.primary{background:#fff;color:#0e0f13}
+.btn.danger{background:var(--rec-soft);color:var(--rec)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.muted{color:var(--muted)}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:15px}
+.steps code{background:var(--panel2);padding:1px 6px;border-radius:6px;font-size:13.5px}
+.ok{color:var(--ok)} .err{color:var(--rec)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);background:#fff;color:#0e0f13;padding:11px 16px;border-radius:14px;font-size:14.5px;opacity:0;transition:.25s;z-index:30;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+a{color:var(--acc)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="top">
+    <div class="brand"><i aria-hidden="true"></i>EBS Aufnahme</div>
+    <a class="icon" id="toMitschrift" href="#" target="_blank" rel="noopener" aria-label="Mitschrift öffnen" title="Mitschrift öffnen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h6"/></svg></a>
+    <button class="icon" id="setBtn" aria-label="Einstellungen" title="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </div>
+
+  <!-- setup (first run) -->
+  <section class="card" id="setup" hidden>
+    <h2>Einmal einrichten</h2>
+    <p class="muted" style="margin:0">Deine Aufnahmen landen in deinem privaten GitHub-Speicher. Von dort holt Claude sie jede Stunde ab, schreibt sie mit, trennt den Dozenten von anderen Stimmen und legt alles in deine Mitschrift.</p>
+    <div class="field"><label for="sRepo">Privater Speicher (Benutzername/Name)</label><input class="in" id="sRepo" placeholder="lorenzjasper10/ebs-mitschrift-daten" value="lorenzjasper10/ebs-mitschrift-daten" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="field"><label for="sToken">Zugangsschlüssel von GitHub</label><input class="in" id="sToken" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <p class="muted" style="margin:0;font-size:13.5px">Den Schlüssel erstellst du bei GitHub unter Settings → Developer settings → Fine-grained tokens. Erlaubt nur diesen einen Speicher und dort nur „Contents: Read and write“. Er bleibt nur auf diesem Gerät.</p>
+    <div class="row"><button class="btn primary" id="sSave">Prüfen und speichern</button><button class="btn" id="sCancel" hidden>Abbrechen</button></div>
+    <div id="sMsg" class="muted" style="font-size:14px"></div>
+  </section>
+
+  <!-- recover -->
+  <section class="card" id="recover" hidden>
+    <h2>Unfertige Aufnahme gefunden</h2>
+    <p class="muted" style="margin:0" id="recoverTxt"></p>
+    <div class="row"><button class="btn primary" id="recUpload">Jetzt hochladen</button><button class="btn danger" id="recDrop">Verwerfen</button></div>
+  </section>
+
+  <!-- main -->
+  <main id="main" style="display:flex;flex-direction:column;gap:18px">
+    <div class="fields">
+      <div class="field"><label for="course">Fach</label>
+        <select class="in" id="course"></select></div>
+      <div class="field"><label for="title">Titel</label><input class="in" id="title" placeholder="z. B. Lecture 6"></div>
+    </div>
+
+    <section class="stage" id="stage">
+      <div class="time" id="time">0:00:00</div>
+      <div class="state"><span class="dot"></span><span id="stateTxt">Bereit</span></div>
+      <canvas id="meter" width="600" height="64" aria-hidden="true"></canvas>
+      <div class="controls">
+        <button class="side" id="pauseBtn" disabled aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+        <button class="big" id="recBtn" aria-label="Aufnahme starten"><span></span></button>
+        <button class="side" id="markBtn" disabled aria-label="Wichtige Stelle markieren" title="Wichtige Stelle markieren"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button>
+      </div>
+      <div class="hint" id="hint">Leg das Gerät nah an den Dozenten. Der Bildschirm bleibt während der Aufnahme an.</div>
+    </section>
+
+    <section class="live">
+      <div class="live-h"><b>Live-Text (Englisch)</b><label class="switch" title="Live-Text an oder aus"><input type="checkbox" id="liveToggle" aria-label="Live-Text"><i></i></label></div>
+      <div id="liveText"><span class="empty" id="liveEmpty">Während der Aufnahme erscheint hier der Text. Die genaue Mitschrift mit Sprechertrennung kommt danach in deine Mitschrift.</span></div>
+    </section>
+
+    <section class="card" id="upload" hidden>
+      <h2 id="upTitle">Wird hochgeladen</h2>
+      <div class="bar"><i id="upBar"></i></div>
+      <p class="muted" style="margin:0" id="upTxt">Lass diese Seite offen, bis der Balken voll ist.</p>
+      <div class="row" id="upRow" hidden><a class="btn primary" id="upOpen" href="#" target="_blank" rel="noopener" style="text-decoration:none">Mitschrift öffnen</a><button class="btn" id="upNew">Neue Aufnahme</button></div>
+      <div class="row" id="upRetryRow" hidden><button class="btn primary" id="upRetry">Noch mal versuchen</button></div>
+    </section>
+
+    <p class="muted" style="font-size:12.5px;text-align:center;margin:0">Bitte frag vorher, ob Mitschnitte okay sind. Der Live-Text nutzt die Spracherkennung deines Browsers.</p>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const MITSCHRIFT = "https://claude.ai/artifact/NptT2uXWtcMcCMY2u7ryJm";
+const COURSES = ["Principles of Management","Organizational Behaviour","Business & Accounting","Bookkeeping & Accounting","Financial Statement Analysis","Mathematics I","Basic Principles of Marketing","Fundamentals of Consumer Behaviour","Data Management and Visualization","Decision Theory & Investments","Introduction to Management","Anderes"];
+const PART_BYTES = 24 * 1024 * 1024;
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,"0");
+const fmt = ms => { const s=Math.floor(ms/1000); return `${Math.floor(s/3600)}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`; };
+const fmtShort = s => { s=Math.floor(s); return s>=3600?`${Math.floor(s/3600)}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`:`${Math.floor(s/60)}:${pad(s%60)}`; };
+const ls = { get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch{ return d; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch{} } };
+function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove("show"),3000); }
+
+$("toMitschrift").href = MITSCHRIFT; $("upOpen").href = MITSCHRIFT;
+$("course").innerHTML = COURSES.map(c=>`<option>${c}</option>`).join("");
+$("course").value = ls.get("course", COURSES[0]);
+$("course").onchange = () => ls.set("course", $("course").value);
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+$("liveToggle").checked = !!SR && ls.get("live", true);
+$("liveToggle").disabled = !SR;
+if (!SR) $("liveEmpty").textContent = "Dieser Browser kann keinen Live-Text. Die Aufnahme funktioniert trotzdem, die Mitschrift kommt danach.";
+$("liveToggle").onchange = () => { ls.set("live", $("liveToggle").checked); if (R.state==="rec") $("liveToggle").checked ? startLive() : stopLive(); };
+
+// ---------- IndexedDB (crash safety) ----------
+const idb = (() => {
+  let dbp;
+  const open = () => dbp ||= new Promise((ok,no)=>{ const r=indexedDB.open("ebs-aufnahme",1); r.onupgradeneeded=()=>{ const d=r.result; d.createObjectStore("chunks",{autoIncrement:true}).createIndex("rec","rec"); d.createObjectStore("recs",{keyPath:"id"}); }; r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error); });
+  const tx = async (store, mode, fn) => { const d=await open(); return new Promise((ok,no)=>{ const t=d.transaction(store,mode); const s=t.objectStore(store); const res=fn(s); t.oncomplete=()=>ok(res?.result ?? res); t.onerror=()=>no(t.error); }); };
+  return {
+    putRec: r => tx("recs","readwrite",s=>s.put(r)).catch(()=>{}),
+    addChunk: (rec, i, blob) => tx("chunks","readwrite",s=>s.add({rec,i,blob})).catch(()=>{}),
+    recs: () => tx("recs","readonly",s=>s.getAll()).catch(()=>[]),
+    chunks: async rec => { const d=await open(); return new Promise((ok)=>{ const out=[]; const t=d.transaction("chunks"); const ix=t.objectStore("chunks").index("rec"); ix.openCursor(IDBKeyRange.only(rec)).onsuccess=e=>{ const c=e.target.result; if(c){ out.push(c.value); c.continue(); } }; t.oncomplete=()=>ok(out.sort((a,b)=>a.i-b.i).map(x=>x.blob)); t.onerror=()=>ok([]); }); },
+    drop: async rec => { const d=await open(); await new Promise(ok=>{ const t=d.transaction(["chunks","recs"],"readwrite"); const ix=t.objectStore("chunks").index("rec"); ix.openCursor(IDBKeyRange.only(rec)).onsuccess=e=>{ const c=e.target.result; if(c){ c.delete(); c.continue(); } }; t.objectStore("recs").delete(rec); t.oncomplete=ok; t.onerror=ok; }); }
+  };
+})();
+
+// ---------- settings ----------
+function cfg(){ return ls.get("cfg", null); }
+function showSetup(force){
+  const c=cfg(); $("setup").hidden = !(force || !c); $("sCancel").hidden = !c;
+  if (c){ $("sRepo").value=c.repo; $("sToken").value=""; $("sToken").placeholder="gespeichert · leer lassen zum Behalten"; }
+}
+$("setBtn").onclick = () => showSetup($("setup").hidden);
+$("sCancel").onclick = () => { $("setup").hidden = true; };
+$("sSave").onclick = async () => {
+  const repo=$("sRepo").value.trim().replace(/^https?:\/\/github\.com\//,"").replace(/\.git$/,"").replace(/\/$/,"");
+  const token=$("sToken").value.trim() || cfg()?.token;
+  const msg=$("sMsg");
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)){ msg.innerHTML=`<span class="err">Bitte so eintragen: benutzername/speichername</span>`; return; }
+  if (!token){ msg.innerHTML=`<span class="err">Der Zugangsschlüssel fehlt.</span>`; return; }
+  msg.textContent="Prüfe Zugang …";
+  try{
+    const r = await fetch(`https://api.github.com/repos/${repo}`,{headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json"}});
+    if (r.status===404 || r.status===401) throw new Error("Kein Zugriff. Stimmt der Name und darf der Schlüssel auf diesen Speicher zugreifen?");
+    const j = await r.json();
+    if (!j.private) throw new Error("Dieser Speicher ist öffentlich. Bitte stell ihn bei GitHub auf „Private“, damit niemand deine Aufnahmen sieht.");
+    if (j.permissions && !j.permissions.push) throw new Error("Der Schlüssel darf nur lesen. Gib ihm „Contents: Read and write“.");
+    ls.set("cfg",{repo, token, branch:j.default_branch||"main"});
+    msg.innerHTML=`<span class="ok">Verbunden mit ${repo}. Du kannst loslegen.</span>`;
+    setTimeout(()=>{ $("setup").hidden=true; msg.textContent=""; }, 1200);
+  }catch(e){ msg.innerHTML=`<span class="err">${e.message||"Das hat nicht geklappt."}</span>`; }
+};
+
+// ---------- recording ----------
+const R = { state:"idle", rec:null, stream:null, chunks:[], id:null, startedAt:null, elapsed:0, runStart:0, mime:"", marks:[], live:[], sr:null, wake:null, ac:null, an:null, raf:0, timer:0, i:0 };
+function now(){ return R.elapsed + (R.state==="rec" ? performance.now()-R.runStart : 0); }
+function setState(s){
+  R.state=s; $("stage").className = "stage " + (s==="rec"?"rec":s==="paused"?"paused":"");
+  $("stateTxt").textContent = {idle:"Bereit",rec:"Nimmt auf",paused:"Pausiert",stopping:"Wird gespeichert"}[s];
+  $("recBtn").setAttribute("aria-label", s==="idle"?"Aufnahme starten":"Aufnahme beenden");
+  $("pauseBtn").disabled = !(s==="rec"||s==="paused");
+  $("pauseBtn").setAttribute("aria-label", s==="paused"?"Fortsetzen":"Pause");
+  $("pauseBtn").innerHTML = s==="paused" ? `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>` : `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`;
+  $("markBtn").disabled = s!=="rec";
+  $("course").disabled = $("title").disabled = s!=="idle";
+  $("hint").textContent = s==="idle" ? "Leg das Gerät nah an den Dozenten. Der Bildschirm bleibt während der Aufnahme an." : s==="paused" ? "Pausiert. Tippe auf Play, um weiterzumachen." : "Läuft. Tippe auf das Lesezeichen, um eine wichtige Stelle zu markieren.";
+}
+function pickMime(){
+  for (const m of ["audio/webm;codecs=opus","audio/mp4;codecs=mp4a.40.2","audio/mp4","audio/webm"]) if (window.MediaRecorder && MediaRecorder.isTypeSupported?.(m)) return m;
+  return "";
+}
+async function start(){
+  if (!cfg()){ showSetup(true); toast("Richte zuerst den Speicher ein."); return; }
+  try{
+    R.stream = await navigator.mediaDevices.getUserMedia({ audio:{ channelCount:1, echoCancellation:false, noiseSuppression:true, autoGainControl:true } });
+  }catch(e){ toast("Ohne Mikrofon geht es nicht. Erlaube den Zugriff in den Browser-Einstellungen."); return; }
+  R.mime = pickMime();
+  R.rec = new MediaRecorder(R.stream, R.mime ? { mimeType:R.mime, audioBitsPerSecond:48000 } : { audioBitsPerSecond:48000 });
+  R.mime = R.rec.mimeType || R.mime || "audio/webm";
+  R.chunks=[]; R.i=0; R.marks=[]; R.live=[]; R.elapsed=0; R.runStart=performance.now();
+  const d=new Date(); R.startedAt=d.toISOString();
+  R.id = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${Math.random().toString(36).slice(2,6)}`;
+  const meta = currentMeta(); await idb.putRec({ ...meta, done:false });
+  R.rec.ondataavailable = e => { if (e.data && e.data.size){ R.chunks.push(e.data); idb.addChunk(R.id, R.i++, e.data); if (R.i % 6 === 0) idb.putRec({ ...currentMeta(), done:false }); } };
+  R.rec.onstop = finish;
+  R.rec.start(10000);
+  setState("rec");
+  $("liveText").innerHTML="";
+  R.timer = setInterval(tick, 250); tick();
+  meter(); wake();
+  if ($("liveToggle").checked) startLive();
+  window.addEventListener("beforeunload", guard);
+}
+function guard(e){ if (R.state==="rec"||R.state==="paused"||R.state==="stopping"){ e.preventDefault(); e.returnValue=""; } }
+function tick(){
+  $("time").textContent = fmt(now());
+}
+function currentMeta(){
+  return { id:R.id, title:$("title").value.trim() || defaultTitle(), course:$("course").value, date:R.startedAt?.slice(0,10), startedAt:R.startedAt,
+    durationSec:Math.round(now()/1000), mime:R.mime, marks:R.marks, liveTranscript:R.live.map(l=>`[${fmtShort(l.t)}] ${l.text}`).join("\n"), device:navigator.userAgent };
+}
+function defaultTitle(){ const d=new Date(R.startedAt||Date.now()); return `${$("course").value} · ${d.toLocaleDateString("de-DE",{day:"numeric",month:"short"})}`; }
+function pause(){
+  if (R.state==="rec"){ R.rec.pause(); R.elapsed += performance.now()-R.runStart; setState("paused"); stopLive(); }
+  else if (R.state==="paused"){ R.rec.resume(); R.runStart=performance.now(); setState("rec"); if ($("liveToggle").checked) startLive(); }
+}
+function stop(){
+  if (R.state==="idle"||R.state==="stopping") return;
+  if (R.state==="rec") R.elapsed += performance.now()-R.runStart;
+  setState("stopping"); stopLive();
+  try{ R.rec.stop(); }catch{ finish(); }
+}
+async function finish(){
+  clearInterval(R.timer); cancelAnimationFrame(R.raf);
+  R.stream?.getTracks().forEach(t=>t.stop()); try{ R.ac?.close(); }catch{}
+  try{ await R.wake?.release(); }catch{} R.wake=null;
+  const meta = currentMeta(); meta.durationSec = Math.round(R.elapsed/1000);
+  await idb.putRec({ ...meta, done:false });
+  const blob = new Blob(R.chunks, { type:R.mime });
+  setState("idle"); $("time").textContent = fmt(R.elapsed);
+  window.removeEventListener("beforeunload", guard);
+  await upload(meta, blob);
+}
+
+// ---------- level meter ----------
+function meter(){
+  try{
+    R.ac = new (window.AudioContext||window.webkitAudioContext)();
+    const src = R.ac.createMediaStreamSource(R.stream); R.an = R.ac.createAnalyser(); R.an.fftSize = 1024; src.connect(R.an);
+  }catch{ return; }
+  const cv=$("meter"), cx=cv.getContext("2d"), buf=new Float32Array(R.an.fftSize), hist=new Array(90).fill(0);
+  const draw = () => {
+    R.an.getFloatTimeDomainData(buf); let s=0; for (const v of buf) s+=v*v; const rms=Math.sqrt(s/buf.length);
+    hist.push(R.state==="rec" ? Math.min(1, rms*6) : 0); hist.shift();
+    const w=cv.width=cv.clientWidth*devicePixelRatio, h=cv.height=64*devicePixelRatio; cx.clearRect(0,0,w,h);
+    const bw=w/hist.length;
+    hist.forEach((v,i)=>{ const bh=Math.max(2*devicePixelRatio, v*h*.9); cx.fillStyle = i>hist.length-4 ? "#ff3b30" : "rgba(241,242,245,.55)"; cx.beginPath(); cx.roundRect?.(i*bw+bw*.2,(h-bh)/2,bw*.6,bh,bw*.3); if(!cx.roundRect) cx.rect(i*bw+bw*.2,(h-bh)/2,bw*.6,bh); cx.fill(); });
+    R.raf = requestAnimationFrame(draw);
+  };
+  draw();
+}
+// ---------- wake lock ----------
+async function wake(){ try{ R.wake = await navigator.wakeLock?.request("screen"); R.wake?.addEventListener("release", ()=>{ R.wake=null; }); }catch{} }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState==="visible" && (R.state==="rec"||R.state==="paused") && !R.wake) wake();
+  if (document.visibilityState==="hidden" && R.state==="rec") toast("Bleib auf dieser Seite, damit die Aufnahme sicher weiterläuft."); });
+
+// ---------- live text ----------
+function startLive(){
+  if (!SR || R.sr) return;
+  const sr = new SR(); sr.lang="en-US"; sr.continuous=true; sr.interimResults=true; R.sr=sr; let interimEl=null;
+  sr.onresult = e => {
+    let interim="";
+    for (let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i];
+      if (r.isFinal){ const text=r[0].transcript.trim(); if(text){ const t=now()/1000; R.live.push({t,text}); const p=document.createElement("p"); p.innerHTML=`<span class="t">${fmtShort(t)}</span>`; p.append(text); interimEl?.remove(); interimEl=null; $("liveText").append(p); } }
+      else interim += r[0].transcript;
+    }
+    if (interim){ if(!interimEl){ interimEl=document.createElement("p"); interimEl.className="interim"; $("liveText").append(interimEl); } interimEl.textContent=interim; }
+    const box=$("liveText"); box.scrollTop=box.scrollHeight;
+  };
+  sr.onerror = e => { if (e.error==="not-allowed"||e.error==="service-not-allowed"){ toast("Live-Text ist in diesem Browser gesperrt. Die Aufnahme läuft weiter."); $("liveToggle").checked=false; R.sr=null; } };
+  sr.onend = () => { if (R.sr===sr && R.state==="rec" && $("liveToggle").checked){ try{ sr.start(); }catch{ R.sr=null; setTimeout(startLive,500); } } else if (R.sr===sr) R.sr=null; };
+  try{ sr.start(); }catch{ R.sr=null; }
+}
+function stopLive(){ const sr=R.sr; R.sr=null; try{ sr?.stop(); }catch{} }
+
+// ---------- buttons ----------
+$("recBtn").onclick = () => R.state==="idle" ? start() : stop();
+$("pauseBtn").onclick = pause;
+$("markBtn").onclick = () => { const t=Math.round(now()/1000); R.marks.push(t); toast(`Stelle bei ${fmtShort(t)} markiert`); };
+$("upNew").onclick = () => { $("upload").hidden=true; $("time").textContent="0:00:00"; $("title").value=""; $("liveText").innerHTML=`<span class="empty">Während der Aufnahme erscheint hier der Text.</span>`; };
+
+// ---------- upload to private GitHub repo ----------
+async function gh(path, opts={}){
+  const c=cfg();
+  const r = await fetch(`https://api.github.com/repos/${c.repo}${path}`, { ...opts, headers:{ Authorization:"Bearer "+c.token, Accept:"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28", ...(opts.body?{"Content-Type":"application/json"}:{}) } });
+  if (!r.ok){ const t=await r.text().catch(()=>""); const err=new Error(`GitHub ${r.status}`); err.status=r.status; err.body=t; throw err; }
+  return r.status===204 ? null : r.json();
+}
+const b64 = blob => new Promise((ok,no)=>{ const fr=new FileReader(); fr.onload=()=>ok(String(fr.result).split(",")[1]||""); fr.onerror=()=>no(fr.error); fr.readAsDataURL(blob); });
+const b64text = s => { const u=new TextEncoder().encode(s); let bin=""; for(let i=0;i<u.length;i+=0x8000) bin+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(bin); };
+async function upload(meta, blob){
+  $("upload").hidden=false; $("upRow").hidden=true; $("upRetryRow").hidden=true;
+  $("upTitle").textContent="Wird hochgeladen"; $("upTxt").textContent=`${fmtShort(meta.durationSec)} Aufnahme · ${(blob.size/1048576).toFixed(1).replace(".",",")} MB. Lass diese Seite offen, bis der Balken voll ist.`;
+  const bar=$("upBar"); bar.style.width="3%";
+  const c=cfg(); const ext = /mp4/.test(meta.mime) ? "m4a" : "webm";
+  try{
+    const ref = await gh(`/git/ref/heads/${c.branch}`); const baseSha=ref.object.sha;
+    const base = await gh(`/git/commits/${baseSha}`);
+    const parts=[]; for (let o=0;o<blob.size;o+=PART_BYTES) parts.push(blob.slice(o,Math.min(blob.size,o+PART_BYTES)));
+    const tree=[], names=[];
+    for (let i=0;i<parts.length;i++){
+      const content = await b64(parts[i]);
+      const b = await gh(`/git/blobs`, { method:"POST", body:JSON.stringify({ content, encoding:"base64" }) });
+      const name = `audio-${pad(i)}.${ext}`; names.push(name);
+      tree.push({ path:`recordings/${meta.id}/${name}`, mode:"100644", type:"blob", sha:b.sha });
+      bar.style.width = Math.round(5 + 85*(i+1)/parts.length) + "%";
+    }
+    const metaJson = JSON.stringify({ ...meta, parts:names, bytes:blob.size, uploadedAt:new Date().toISOString(), device:undefined }, null, 2);
+    const mb = await gh(`/git/blobs`, { method:"POST", body:JSON.stringify({ content:b64text(metaJson), encoding:"base64" }) });
+    tree.push({ path:`recordings/${meta.id}/meta.json`, mode:"100644", type:"blob", sha:mb.sha });
+    const t = await gh(`/git/trees`, { method:"POST", body:JSON.stringify({ base_tree:base.tree.sha, tree }) });
+    const cm = await gh(`/git/commits`, { method:"POST", body:JSON.stringify({ message:`Aufnahme: ${meta.title}`, tree:t.sha, parents:[baseSha] }) });
+    await gh(`/git/refs/heads/${c.branch}`, { method:"PATCH", body:JSON.stringify({ sha:cm.sha }) });
+    bar.style.width="100%";
+    await idb.drop(meta.id);
+    $("upTitle").textContent="Sicher gespeichert";
+    $("upTxt").textContent="Claude holt die Aufnahme bei der nächsten stündlichen Runde ab, trennt den Dozenten von anderen Stimmen und legt Transkript und Zusammenfassung in deine Mitschrift. Du bekommst eine Push-Nachricht.";
+    $("upRow").hidden=false;
+    try{ $("upload").scrollIntoView({behavior:"smooth",block:"center"}); }catch{}
+  }catch(e){
+    const why = e.status===401||e.status===403 ? "Der Zugangsschlüssel passt nicht mehr. Trag ihn in den Einstellungen neu ein." : e.status===409||e.status===422 ? "Der Speicher hat sich gerade geändert. Versuch es einfach noch mal." : !navigator.onLine ? "Keine Internetverbindung. Die Aufnahme ist auf diesem Gerät gesichert." : "Hochladen hat nicht geklappt. Die Aufnahme ist auf diesem Gerät gesichert.";
+    $("upTitle").textContent="Noch nicht hochgeladen"; $("upTxt").textContent=why; $("upRetryRow").hidden=false;
+    $("upRetry").onclick = () => upload(meta, blob);
+  }
+}
+
+// ---------- recover unfinished recordings ----------
+(async () => {
+  showSetup(false);
+  const recs = (await idb.recs()).filter(r=>!r.done && r.id!==R.id);
+  if (!recs.length) return;
+  const r = recs.sort((a,b)=>(b.startedAt||"").localeCompare(a.startedAt||""))[0];
+  const chunks = await idb.chunks(r.id);
+  if (!chunks.length){ idb.drop(r.id); return; }
+  $("recover").hidden=false;
+  $("recoverTxt").textContent = `„${r.title}“ vom ${new Date(r.startedAt).toLocaleString("de-DE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}, etwa ${fmtShort(Math.max(r.durationSec||0, chunks.length*10))}. Sie wurde nicht fertig hochgeladen.`;
+  $("recUpload").onclick = async () => { $("recover").hidden=true; const blob=new Blob(chunks,{type:r.mime||"audio/webm"}); await upload({ ...r, durationSec:Math.max(r.durationSec||0, chunks.length*10) }, blob); };
+  $("recDrop").onclick = async () => { $("recover").hidden=true; await idb.drop(r.id); toast("Verworfen"); };
+})();
+setState("idle");
+</script>
+</body>
+</html>
