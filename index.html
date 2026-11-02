@@ -97,14 +97,14 @@ a{color:var(--acc)}
 <div class="app" id="app">
   <div class="top">
     <div class="brand"><i aria-hidden="true"></i>EBS Aufnahme</div>
-    <a class="icon" id="toMitschrift" href="#" target="_blank" rel="noopener" aria-label="Mitschrift öffnen" title="Mitschrift öffnen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h6"/></svg></a>
+    <a class="icon" id="toMitschrift" href="#" target="_blank" rel="noopener" aria-label="Studienzentrale öffnen" title="Studienzentrale öffnen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h6"/></svg></a>
     <button class="icon" id="setBtn" aria-label="Einstellungen" title="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </div>
 
   <!-- setup (first run) -->
   <section class="card" id="setup" hidden>
     <h2>Einmal einrichten</h2>
-    <p class="muted" style="margin:0">Deine Aufnahmen landen in deinem privaten GitHub-Speicher. Von dort holt Claude sie jede Stunde ab, schreibt sie mit, trennt den Dozenten von anderen Stimmen und legt alles in deine Mitschrift.</p>
+    <p class="muted" style="margin:0">Deine Aufnahmen landen in deinem privaten GitHub-Speicher. Von dort holt Claude sie jede Stunde ab, schreibt sie mit, trennt den Dozenten von anderen Stimmen und legt alles in deine Studienzentrale.</p>
     <div class="field"><label for="sRepo">Privater Speicher (Benutzername/Name)</label><input class="in" id="sRepo" placeholder="lorenzjasper10/ebs-mitschrift-daten" value="lorenzjasper10/ebs-mitschrift-daten" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
     <div class="field"><label for="sToken">Zugangsschlüssel von GitHub</label><input class="in" id="sToken" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
     <p class="muted" style="margin:0;font-size:13.5px">Den Schlüssel erstellst du bei GitHub unter Settings → Developer settings → Fine-grained tokens. Erlaubt nur diesen einen Speicher und dort nur „Contents: Read and write“. Er bleibt nur auf diesem Gerät.</p>
@@ -141,14 +141,14 @@ a{color:var(--acc)}
 
     <section class="live">
       <div class="live-h"><b>Live-Text (Englisch)</b><label class="switch" title="Live-Text an oder aus"><input type="checkbox" id="liveToggle" aria-label="Live-Text"><i></i></label></div>
-      <div id="liveText"><span class="empty" id="liveEmpty">Während der Aufnahme erscheint hier der Text. Die genaue Mitschrift mit Sprechertrennung kommt danach in deine Mitschrift.</span></div>
+      <div id="liveText"><span class="empty" id="liveEmpty">Während der Aufnahme erscheint hier der Text. Die genaue Mitschrift mit Sprechertrennung kommt danach in deine Studienzentrale.</span></div>
     </section>
 
     <section class="card" id="upload" hidden>
       <h2 id="upTitle">Wird hochgeladen</h2>
       <div class="bar"><i id="upBar"></i></div>
       <p class="muted" style="margin:0" id="upTxt">Lass diese Seite offen, bis der Balken voll ist.</p>
-      <div class="row" id="upRow" hidden><a class="btn primary" id="upOpen" href="#" target="_blank" rel="noopener" style="text-decoration:none">Mitschrift öffnen</a><button class="btn" id="upNew">Neue Aufnahme</button></div>
+      <div class="row" id="upRow" hidden><a class="btn primary" id="upOpen" href="#" target="_blank" rel="noopener" style="text-decoration:none">Zur Studienzentrale</a><button class="btn" id="upNew">Neue Aufnahme</button></div>
       <div class="row" id="upRetryRow" hidden><button class="btn primary" id="upRetry">Noch mal versuchen</button></div>
     </section>
 
@@ -158,7 +158,7 @@ a{color:var(--acc)}
 <div class="toast" id="toast" role="status"></div>
 
 <script>
-const MITSCHRIFT = "https://claude.ai/artifact/NptT2uXWtcMcCMY2u7ryJm";
+const MITSCHRIFT = "https://claude.ai/artifact/XBwpinLs21soFFoWEqL1Td#online";
 const COURSES = ["Principles of Management","Organizational Behaviour","Business & Accounting","Bookkeeping & Accounting","Financial Statement Analysis","Mathematics I","Basic Principles of Marketing","Fundamentals of Consumer Behaviour","Data Management and Visualization","Decision Theory & Investments","Introduction to Management","Anderes"];
 const PART_BYTES = 24 * 1024 * 1024;
 const $ = id => document.getElementById(id);
@@ -170,7 +170,12 @@ function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
 
 $("toMitschrift").href = MITSCHRIFT; $("upOpen").href = MITSCHRIFT;
 $("course").innerHTML = COURSES.map(c=>`<option>${c}</option>`).join("");
-$("course").value = ls.get("course", COURSES[0]);
+const qp = new URLSearchParams(location.search);
+const qCourse = qp.get("course"), qTitle = qp.get("title");
+if (qCourse && !COURSES.includes(qCourse)) $("course").insertAdjacentHTML("afterbegin", `<option>${qCourse.replace(/[<>&"]/g,"")}</option>`);
+$("course").value = qCourse || ls.get("course", COURSES[0]);
+if (qTitle) $("title").value = qTitle;
+if (qCourse || qTitle) { try{ history.replaceState(null, "", location.pathname); }catch(e){} }
 $("course").onchange = () => ls.set("course", $("course").value);
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 $("liveToggle").checked = !!SR && ls.get("live", true);
@@ -373,7 +378,7 @@ async function upload(meta, blob){
     bar.style.width="100%";
     await idb.drop(meta.id);
     $("upTitle").textContent="Sicher gespeichert";
-    $("upTxt").textContent="Claude holt die Aufnahme bei der nächsten stündlichen Runde ab, trennt den Dozenten von anderen Stimmen und legt Transkript und Zusammenfassung in deine Mitschrift. Du bekommst eine Push-Nachricht.";
+    $("upTxt").textContent="Claude holt die Aufnahme bei der nächsten stündlichen Runde ab, trennt den Dozenten von anderen Stimmen und legt Transkript und Zusammenfassung in deine Studienzentrale unter „Vorlesungen“. Du bekommst eine Push-Nachricht.";
     $("upRow").hidden=false;
     try{ $("upload").scrollIntoView({behavior:"smooth",block:"center"}); }catch{}
   }catch(e){
